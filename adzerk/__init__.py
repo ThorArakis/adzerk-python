@@ -153,6 +153,10 @@ class Base(object):
         item = handle_response(response)
         return cls._from_item(item)
 
+    @classmethod
+    def fields(cls):
+        return cls._fields.to_set(exclude_optional=False)
+
 
 class Map(Base):
     parent = None
@@ -272,9 +276,17 @@ class Flight(Base):
         Field('IPTargeting', optional=True),
         Field('GeoTargeting', optional=True),
         Field('SiteZoneTargeting', optional=True),  # Is this actually optional?
-        Field('CreativeMaps', optional=True), # Not always included in adzerk response, should probably be a special stub to indicate that
+        Field('CreativeMaps', optional=True),       # Not always included in adzerk response, should probably be a special stub to indicate that
         Field('ReferrerKeywords', optional=True),
         Field('WeightOverride', optional=True),
+        Field('ECPMOptimizePeriod', optional=True), # Adzerk api doesn't specify ECPM fields as optional
+        Field('ECPMMultiplier', optional=True),     # According to the adzerk web ui, ECPMOptimizePeriod, DefaultECPM, and ECPMBurnInImpressions are required
+        Field('FloorECPM', optional=True),
+        Field('CeilingECPM', optional=True),
+        Field('DefaultECPM', optional=True),
+        Field('ECPMBurnInImpressions', optional=True),
+        Field('IsECPMOptimized', optional=True), # This field missing from Adzerk API docs, believe they will add it in. I think this is the trigger for all other ECPM fields
+        Field('DeliveryStatus'),
     )
 
     # list doesn't return CreativeMaps
@@ -299,6 +311,26 @@ class Flight(Base):
         if cfm_things:
             item['CreativeMaps'] = [thing._to_item() for thing in cfm_things]
         return item
+
+    @classmethod
+    def list(cls, campaignId=0):
+        if campaignId == 0:
+            url = '/'.join([cls._base_url, 'flight'])
+        else:
+            url = '/'.join([cls._base_url, 'campaign', str(campaignId), 'flight'])
+
+        response = requests.get(url, headers=cls._headers())
+        content = handle_response(response)
+        items = content.get('items')
+        return items
+
+        # TODO: FIX THIS?
+        # Problems converting to JSON when we convert to an object, creativemaps maybe?
+        # if items:
+        #     return [cls._from_item(item) for item in items]
+
+    def save(self):
+        return self._send()
 
     def __repr__(self):
         return '<Flight %s <Campaign %s>>' % (self.Id, self.CampaignId)
@@ -333,6 +365,7 @@ class Creative(Base):
         Field('IsSync'),
         Field('IsDeleted'),
         Field('IsActive'),
+        Field('Metadata', optional=True),
     )
 
     @classmethod
@@ -344,6 +377,9 @@ class Creative(Base):
         items = content.get('items')
         if items:
             return [cls._from_item(item) for item in items]
+
+    def save(self):
+        return self._send()
 
     def __repr__(self):
         return '<Creative %s>' % (self.Id)
@@ -408,10 +444,10 @@ class Channel(Base):
     _name = 'channel'
     _fields = FieldSet(
         Field('Title'),
-        Field('Commission'), 
-        Field('Engine'), 
-        Field('Keywords'), 
-        Field('CPM'), 
+        Field('Commission'),
+        Field('Engine'),
+        Field('Keywords'),
+        Field('CPM'),
         Field('AdTypes'),
         Field('IsDeleted'),
     )
@@ -467,6 +503,30 @@ class Campaign(Base):
             item['Flights'] = [flight._to_item() for flight in flights]
         return item
 
+    def save(self):
+        return self._send()
+
     def __repr__(self):
         return '<Campaign %s>' % (self.Id)
 
+
+class Report(Base):
+    _name = 'report'
+
+    @classmethod
+    def create_report(cls, **attr):
+        url = '/'.join([cls._base_url, 'report'])
+        data = 'criteria=%s' % json.dumps(attr)
+        response = requests.post(url, headers=cls._headers(), data=data)
+        item = handle_response(response)
+        return item
+
+    @classmethod
+    def retrieve_report(cls, ReportId):
+        url = '/'.join([cls._base_url, 'report', ReportId])
+        response = requests.get(url, headers=cls._headers())
+        item = handle_response(response)
+        return item
+
+    def __repr__(self):
+        return '<Report %s>' % (self.Id)
