@@ -44,6 +44,12 @@ rate_types = {
     6: 'CPA Both',
 }
 
+cap_types = {
+    1: 'Impressions',
+    2: 'Clicks',
+    3: 'Conversions',
+}
+
 freq_cap_types = {
     1: 'Hour',
     2: 'Day',
@@ -141,6 +147,13 @@ class Base(object):
         item = handle_response(response)
         return cls._from_item(item)
 
+    # @classmethod
+    # def delete(cls, Id):
+    #     url = '/'.join([cls._base_url, cls._name, str(Id), 'delete'])
+    #     response = requests.get(url, headers=cls._headers())
+    #     item = handle_response(response)
+    #     return item
+
     def _send(self):
         url = '/'.join([self._base_url, self._name, str(self.Id)])
         data = self._to_data()
@@ -197,6 +210,14 @@ class Map(Base):
         response = requests.get(url, headers=cls._headers())
         item = handle_response(response)
         return cls._from_item(item)
+
+    # @classmethod
+    # def delete(cls, ParentId, Id):
+    #     url = '/'.join([cls._base_url, cls.parent._name, str(ParentId),
+    #                     cls.child._name, str(Id), 'delete'])
+    #     response = requests.get(url, headers=cls._headers())
+    #     item = handle_response(response)
+    #     return item
 
 
 class Site(Base):
@@ -258,11 +279,13 @@ class Flight(Base):
         Field('PriorityId'),
         Field('IsDeleted'),
         Field('IsActive'),
+        Field('CustomTargeting', optional=True),
         Field('GoalType', optional=True),
         Field('RateType', optional=True),
         Field('IsFreqCap', optional=True),
         Field('FreqCap', optional=True),
         Field('FreqCapDuration', optional=True),
+        Field('CapType', optional=True),
         Field('FreqCapType', optional=True),
         Field('DatePartingStartTime', optional=True),
         Field('DatePartingEndTime', optional=True),
@@ -322,12 +345,9 @@ class Flight(Base):
         response = requests.get(url, headers=cls._headers())
         content = handle_response(response)
         items = content.get('items')
-        return items
 
-        # TODO: FIX THIS?
-        # Problems converting to JSON when we convert to an object, creativemaps maybe?
-        # if items:
-        #     return [cls._from_item(item) for item in items]
+        if items:
+            return [cls._from_item(item) for item in items]
 
     def save(self):
         return self._send()
@@ -417,6 +437,9 @@ class CreativeFlightMap(Map):
             else:
                 val = Stub(Id)
         Map.__setattr__(self, attr, val)
+
+    def save(self):
+        return self._send()
 
     @classmethod
     def _from_item(cls, item):
