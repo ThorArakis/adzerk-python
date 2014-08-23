@@ -1,7 +1,6 @@
 import json
 import requests
 
-
 API_KEY = ''
 
 
@@ -15,7 +14,7 @@ class NotFound(AdzerkError): pass
 
 
 def handle_response(response):
-    if response.status_code == 400:
+    if response.status_code == 404:
         raise NotFound
     elif response.status_code != 200:
         raise AdzerkError('response %s' % response.status_code)
@@ -92,9 +91,12 @@ class Base(object):
     _fields = FieldSet()
 
     @classmethod
-    def _headers(cls):
-        return {'X-Adzerk-ApiKey': API_KEY,
-                'Content-Type': 'application/x-www-form-urlencoded'}
+    def _headers(cls, content='urlencoded'):
+        if content=='urlencoded':
+            return {'X-Adzerk-ApiKey': API_KEY,
+                    'Content-Type': 'application/x-www-form-urlencoded'}
+        else:
+            return {'X-Adzerk-ApiKey': API_KEY}
 
     def __init__(self, Id, **attr):
         self.Id = Id
@@ -268,11 +270,11 @@ class Flight(Base):
         Field('EndDate', optional=True),
         Field('NoEndDate', optional=True),
         Field('Price'),
-        Field('OptionType'),
+        Field('OptionType', optional=True),
         Field('Impressions'),
-        Field('IsUnlimited'),
+        Field('IsUnlimited', optional=True),
         Field('IsNoDuplicates', optional=True),
-        Field('IsFullSpeed'),
+        Field('IsFullSpeed', optional=True),
         Field('Keywords', optional=True),
         Field('UserAgentKeywords', optional=True),
         Field('CampaignId'),
@@ -309,7 +311,9 @@ class Flight(Base):
         Field('DefaultECPM', optional=True),
         Field('ECPMBurnInImpressions', optional=True),
         Field('IsECPMOptimized', optional=True), # This field missing from Adzerk API docs, believe they will add it in. I think this is the trigger for all other ECPM fields
-        Field('DeliveryStatus'),
+        Field('DeliveryStatus', optional=True),
+        Field('LifetimeCapAmount', optional=True),
+        Field('DailyCapAmount', optional=True),
     )
 
     # list doesn't return CreativeMaps
@@ -401,6 +405,15 @@ class Creative(Base):
     def save(self):
         return self._send()
 
+    @classmethod
+    def upload(cls, Id, ImagePath):
+        url = '/'.join([cls._base_url, cls._name, str(Id), 'upload'])
+        image = {'image': open(ImagePath, 'rb')}
+        response = requests.post(url, headers=cls._headers(content=None), files=image)
+
+        item = handle_response(response)
+        return cls._from_item(item)
+
     def __repr__(self):
         return '<Creative %s>' % (self.Id)
 
@@ -417,7 +430,7 @@ class CreativeFlightMap(Map):
         Field('PublisherAccountId'),
         Field('IsDeleted'),
         Field('Percentage'),
-        Field('Iframe'), # Not always included in adzerk response
+        Field('Iframe', optional=True), # Not always included in adzerk response
         Field('Creative'),
         Field('IsActive'),
         Field('FlightId'),

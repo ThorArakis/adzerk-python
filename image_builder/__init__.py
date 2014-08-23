@@ -3,12 +3,6 @@
 from PIL import Image,  ImageFont, ImageDraw 
 
 
-#progress bar rectangle
-progressHeight = 28
-progressWidth = 310
-progressXOffset = 22
-progressYOffset = 152
-
 def add_corners(im, rad):
     circle = Image.new('L', (rad * 2, rad * 2), 0)
     draw = ImageDraw.Draw(circle)
@@ -20,31 +14,76 @@ def add_corners(im, rad):
     alpha.paste(circle.crop((rad, 0, rad * 2, rad)), (w - rad, 0))
     alpha.paste(circle.crop((rad, rad, rad * 2, rad * 2)), (w - rad, h - rad))
     im.putalpha(alpha)
+    im.show()
     return im
+
+font_location = "/Library/Fonts/OpenSans-Bold.ttf"
+
 
 # print img.getpixel((progressXOffset, progressYOffset))
 # img2 = Image.new('RGBA', (350,50), color=img.getpixel((progressXOffset, progressYOffset)))
 #img2.show()
 
-def build_3x1_ad(percent, goal):
-    img = Image.open("image_templates/ad_small.png")
+def build_3x1_ad(image_name):
+    background = Image.open("image_templates/ad_small.png")
     draw = ImageDraw.Draw(img)
-    font = ImageFont.truetype("/Library/Fonts/Comic Sans MS.ttf", 24)
-    fulltext = "%d%% funded of $%d goal" % (percent*100, goal)
-    
-    draw.text((22, 110),fulltext,(0,0,0),font=font)
-    draw.rectangle([(progressXOffset, progressYOffset), ((progressXOffset+progressWidth), progressYOffset+progressHeight)], fill='white')
-    draw.rectangle([(progressXOffset, progressYOffset), (progressXOffset+(progressWidth*percent), 
-        progressYOffset+progressHeight)], fill=(176,222,88))
 
+    image_path = 'compiled_templates/' + image_name
+    img.save(image_path)
     img.show()
 
-def build_rectangle_ad(percent, goal):
-    print "not done yet"
-    return
+    return image_path
+
+def build_rectangle_ad(image_name, subreddit):
+    background = Image.open("image_templates/med_rect.png")
+    draw = ImageDraw.Draw(background)
+    image_path = 'compiled_templates/' + image_name 
+
+    mask = Image.open('image_templates/placeholder_shirt_mask.png')
+    shirt = Image.open('image_templates/tshirt-image.png')
+    #resize with thumbnail
+    shirt.thumbnail((350,250))
+    mask.thumbnail((350,250))
+
+    shirt_offset_x = (background.size[0]-shirt.size[0]) / 2
+    background.paste(shirt, mask=mask, box=(shirt_offset_x,32))
+    
+    font = ImageFont.truetype(font_location, 14)
+    text_offset_x = (background.size[0]-font.getsize('/r/'+subreddit)[0]) / 2
+    draw.text((text_offset_x, 38), '/r/'+subreddit, (0,0,0), font=font)
+    
+    background.show()
+    #background.save(image_path)
+
+    return image_path
+
+def update_progress(image_name=None, text_offset=(0,0), text="", bar_offset=(0,0), bar_size=(0,0), percent=0, goal=0):
+    img = Image.open('compiled_templates/' + image_name)
+    write_progress_text(img, text_offset, text)
+    draw_progess_bar(img, bar_offset, bar_size, percent)
+
+    img.save('final_images/' + image_name)
+    return 'final_images/' + image_name
+
+def write_progress_text(image, offset, text):
+    draw = ImageDraw.Draw(image)
+    font = ImageFont.truetype(font_location, 12)
+    draw.text(offset, text, (0,0,0), font=font)
+
+    return image
+
+def draw_progess_bar(image, offset, size, percent):
+    #TODO if image is missing, make it.
+    
+    draw = ImageDraw.Draw(image)
+
+    draw.rectangle([(offset[0], offset[1]), ((offset[0]+size[0]), offset[1]+size[1])], fill='white')
+    draw.rectangle([(offset[0], offset[1]), (offset[0]+(size[0]*percent), 
+        offset[1]+size[1])], fill=(176,222,88))
+
+    image.show()
+    return image
 
 #img = add_corners(img, 10)
 
-    
-#img.save('foo-out.jpg')
 
