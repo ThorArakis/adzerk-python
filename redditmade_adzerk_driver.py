@@ -26,6 +26,18 @@ ad_type_id = {
 # priority_id = '61020'
 # publisher_id= '7589'
 
+def download_campaign_image(campaign_slug, img_url):
+    path = 'campaign_art/'+ campaign_slug 
+    resp = requests.get(img_url, stream=True)
+    if resp.status_code > 400:
+        raise Exception('Unable to get tshit image, cannot build ad.')
+    
+    with open(path, 'wb') as f:
+        for chunk in resp.iter_content():
+            f.write(chunk)
+    return path
+        
+
 def create_campaign(campaign):
     print "omg making a new campaign!"
     #print campaign
@@ -34,51 +46,62 @@ def create_campaign(campaign):
     metadata="{'percent':'%d'}" % funded
     ad_text = "%d%% funded of $%d goal" % (funded*100, goal)
 
-    ad_3x1_path = image_builder.build_3x1_ad(campaign['slug']+'_3x1.png')
-    image_builder.update_progress(campaign['slug']+'_3x1.png', (11, 55), ad_text, (10,76), (155,14), funded)
-    image_builder.update_progress(image_name=campaign['slug']+'_3x1.png', text_offset=(11, 55), text=ad_text, 
-                                  bar_offset=(10,76), bar_size=(155,14), percent=funded, goal=goal)
+    shirt_image = download_campaign_image(campaign['slug'], campaign['img'])
 
-    ad_rect_path = image_builder.build_rectangle_ad(campaign['slug']+'_med_rect.png', campaign['subreddit'])
-    image_builder.update_progress(image_name=campaign['slug']+'_med_rect.png', text_offset=(55, 204), text=ad_text, 
-                                  bar_offset=(12,222), bar_size=(272,14), percent=funded, goal=goal)
+    #Make the flight in the adzerk api
+    new_ad = adzerk.Flight.create(CampaignId=campaign_id, Name=campaign['slug'], StartDate=time.strftime("%m/%d/%Y"), 
+                                  Price=0.0, Impressions=1, IsUnlimited=True, PriorityId=priority_id, IsDeleted=False, 
+                                  IsActive=True, Keywords=campaign['subreddit'] )
 
-    print "creating and uploading ad"
+    # Build the 300 x 100 size ad
+    image_builder.build_3x1_ad(image_name=campaign['slug']+'_3x1.png', shirt_image=shirt_image)
+    ad_3x1_path = image_builder.update_progress(image_name=campaign['slug']+'_3x1.png', text_offset=(11, 55), 
+                                                text=ad_text, bar_offset=(10,76), bar_size=(155,14), percent=funded, 
+                                                goal=goal)
     creative_3x1 = adzerk.Creative.create(AdvertiserId=advertiser_id, Url='http://i.imgur.com/y4EgILj.jpg', 
                                           Title=ad_3x1_path, AdTypeId=ad_type_id['3x1'], Body='test_body', 
                                           Alt='test_alt', IsActive=True, IsSync=False, IsDeleted=False, 
                                           Metadata=metadata)
     adzerk.Creative.upload(creative_3x1.Id, ad_3x1_path)
+    ad_map = adzerk.CreativeFlightMap.create(new_ad.Id, CampaignId=campaign_id, SizeOverride=False,
+                                            PublisherAccountId=publisher_id, IsDeleted=False, Percentage=100, 
+                                            Creative={'Id':creative_3x1.Id}, IsActive=True, FlightId=new_ad.Id, 
+                                            Impressions=1, DistributionType=1)
 
+    # Build the 300 x 250 size ad
+    image_builder.build_rectangle_ad(campaign['slug']+'_med_rect.png', campaign['subreddit'], shirt_image=shirt_image)
+    ad_rect_path = image_builder.update_progress(image_name=campaign['slug']+'_med_rect.png', text_offset=(55, 204), 
+                                                text=ad_text, bar_offset=(12,222), bar_size=(272,14), percent=funded, 
+                                                goal=goal)
     creative_rect = adzerk.Creative.create(AdvertiserId=advertiser_id, Url='http://i.imgur.com/Bt7MlwH.jpg', 
                                            Title=ad_rect_path, AdTypeId=ad_type_id['rectangle'], Body='test_body', 
                                            Alt='test_alt', IsActive=True, IsSync=False, IsDeleted=False, 
                                            Metadata=metadata)
     adzerk.Creative.upload(creative_rect.Id, ad_rect_path)
-
-    print "making the flight!"
-    new_ad = adzerk.Flight.create(CampaignId=campaign_id, Name=campaign['slug'], StartDate=time.strftime("%m/%d/%Y"), 
-                                  Price=0.0, Impressions=1, IsUnlimited=True, PriorityId=priority_id, IsDeleted=False, 
-                                  IsActive=True, Keywords=campaign['subreddit'] )
-    print new_ad
-
-    print "making flight maps"
-    ad_map = adzerk.CreativeFlightMap.create(new_ad.Id, CampaignId=campaign_id, SizeOverride=False,
-                                            PublisherAccountId=publisher_id, IsDeleted=False, Percentage=100, 
-                                            Creative={'Id':creative_3x1.Id}, IsActive=True, FlightId=new_ad.Id, 
-                                            Impressions=1, DistributionType=1)
-    print ad_map
     ad_map2 = adzerk.CreativeFlightMap.create(new_ad.Id, CampaignId=campaign_id, SizeOverride=False, 
                                               PublisherAccountId=publisher_id, IsDeleted=False, Percentage=100, 
                                               Creative={'Id':creative_rect.Id}, IsActive=True, FlightId=new_ad.Id, 
                                               Impressions=1, DistributionType=1)
-    print ad_map2
+    return True
+    
 
 def update_campaign(campaign, ad):
     print "omg updating campaign!"
     # adzerk.Flight.get()
     #TODO activate the flight, as there isn't a unique constraint for flight name
     return True
+    #get flight/map
+
+    ad_3x1_path = image_builder.update_progress(image_name=campaign['slug']+'_3x1.png', text_offset=(11, 55), 
+                                                text=ad_text, bar_offset=(10,76), bar_size=(155,14), percent=funded, 
+                                                goal=goal)
+
+    ad_rect_path = image_builder.update_progress(image_name=campaign['slug']+'_med_rect.png', text_offset=(55, 204), 
+                                                text=ad_text, bar_offset=(12,222), bar_size=(272,14), percent=funded, 
+                                                goal=goal)
+
+    adzerk.Creative.upload(creative_3x1.Id, ad_3x1_path)
+    adzerk.Creative.upload(creative_rect.Id, ad_rect_path)
     #create new image
 
 def deactivate_campaign(ad):
@@ -99,9 +122,7 @@ def deactivate_campaign(ad):
     print "Deactivating ad: %d" % ad.Id
     ad.IsActive = False
     ad.save()
-    print "huzzah"
     return True
-
 
 rm_campaigns = requests.get(redditmade_url)
 #map all of the active/linked reddit campaigns
@@ -130,10 +151,10 @@ for slug, campaign in reddit_data.iteritems():
     #if RM=true 
     if slug in adzerk_data:
         try:
-            if update_campaign(campaign, adzerk_data[slug]):
-                del adzerk_data[slug] #marking the ad as 'processed' effectively
+            update_campaign(campaign, adzerk_data[slug])
         except:
             print "Unable to create campaign for %s" % campaign['slug']
+        del adzerk_data[slug] #marking the ad as 'processed' effectively
 
     else:
         try:
@@ -152,6 +173,5 @@ print "-----------------------------------------"
 stale_ads = [y for x,y in adzerk_data.iteritems() if y.IsActive]
 print "things to delete"
 for stale_ad in stale_ads:
-    print stale_ad
     deactivate_campaign(stale_ad)
 
