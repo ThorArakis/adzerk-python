@@ -16,8 +16,6 @@ advertiser_id = '70675'
 priority_id = '61083'
 publisher_id= '21194'
 
-adzerk.Creative.create(AdvertiserId='70675', Url='http://i.imgur.com/Bt7MlwH.jpg', Title='foo', AdTypeId=5, Body='test_body', Alt='test_alt', IsActive=True, IsSync=False, IsDeleted=False, Metadata='{"foo2": "bar2"}')
-
 ad_type_id = {
     'rectangle':5,
     '3x1':8,
@@ -48,7 +46,7 @@ def download_campaign_image(campaign_slug, img_url):
 def create_campaign(campaign):
     goal = (float(campaign['goal']) * float(campaign['price_in_cents'])) / 100
     funded = float(campaign['funded'])
-    metadata = '{"percent":"%d"}' % funded
+    metadata = '{"percent":"%f"}' % funded
     ad_text = "%d%% funded of $%d goal" % (funded*100, goal)
 
     shirt_image = download_campaign_image(campaign['slug'], campaign['img'])
@@ -93,10 +91,10 @@ def create_campaign(campaign):
     
 
 def update_campaign(campaign, ad):
-    print "omg updating campaign!"
     goal = (float(campaign['goal']) * float(campaign['price_in_cents'])) / 100
     percent = float(campaign['funded'])
     percent = .4 #TODO remove when going live
+    metadata = '{"percent":"%f"}' % percent
     ad_text = "%d%% funded of $%d goal" % (percent*100, goal)
 
     for creative_map in ad.CreativeMaps:
@@ -111,17 +109,21 @@ def update_campaign(campaign, ad):
     old_percent = float(json.loads(ad_3x1.Metadata)["percent"])
     
     if ad_3x1 and percent>old_percent:
-        success.append("progress updated [%s]" % campaign['slug'])
         ad_3x1_path = image_builder.update_progress(image_name=campaign['slug']+'_3x1.png', text_offset=(11, 55), 
                                                 text=ad_text, bar_offset=(10,76), bar_size=(155,14), percent=percent, 
                                                 goal=goal)
         adzerk.Creative.upload(ad_3x1.Id, ad_3x1_path)
+        ad_3x1.Metadata = metadata
+        ad_3x1.save()
+        success.append("progress updated [%s]" % campaign['slug'])
 
     if ad_rect and percent>old_percent:
         ad_rect_path = image_builder.update_progress(image_name=campaign['slug']+'_med_rect.png', text_offset=(55, 204), 
                                                 text=ad_text, bar_offset=(12,222), bar_size=(272,14), percent=percent, 
                                                 goal=goal)
         adzerk.Creative.upload(ad_rect.Id, ad_rect_path)
+        ad_rect.Metadata = metadata
+        ad_rect.save()
 
 def deactivate_campaign(ad):
     creative_maps = adzerk.CreativeFlightMap.list(ad.Id)
@@ -160,10 +162,9 @@ for slug, campaign in reddit_data.iteritems():
     if slug in adzerk_data:
         try:
             update_campaign(campaign, adzerk_data[slug])
-            success.append("updating %s" % campaign['slug'])
         except:
             print "Unable to create campaign for %s" % campaign['slug']
-            errors.append("updating %s" % campaign['slug'])
+            errors.append("updating [%s]" % campaign['slug'])
             raise
 
         del adzerk_data[slug] #marking the ad as 'processed' effectively
@@ -171,10 +172,10 @@ for slug, campaign in reddit_data.iteritems():
     else:
         try:
             create_campaign(campaign)
-            success.append("creating %s" % campaign['slug'])
+            success.append("creating [%s]" % campaign['slug'])
         except:
             print "Unable to create campaign for %s" % campaign['slug']
-            errors.append("creating %s" % campaign['slug'])
+            errors.append("creating [%s]" % campaign['slug'])
             raise
 
     #if RM=false && adz==true
@@ -183,18 +184,16 @@ for slug, campaign in reddit_data.iteritems():
 
 # final loop to clean up any ads without an active redditmade campaign
 stale_ads = [y for x,y in adzerk_data.iteritems() if y.IsActive]
-print "things to delete"
 for stale_ad in stale_ads:
     try:
         deactivate_campaign(stale_ad)
-        success.append("updating %s" % stale_ad.Name)
+        success.append("updating [%s]" % stale_ad.Name)
     except:
         print "Unable to deactivate campaign for %s" % stale_ad.Name
-        errors.append("updating %s" % stale_ad.Name)
+        errors.append("updating [%s]" % stale_ad.Name)
         raise
 
 
-print
 print "----------------results------------------"
 print "-----------------------------------------"
 print "Successes: "
