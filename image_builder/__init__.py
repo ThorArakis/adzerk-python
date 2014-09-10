@@ -28,16 +28,16 @@ def build_3x1_ad(image_name=None, shirt_image=None):
     background = Image.open("image_templates/ad_small.png")
     draw = ImageDraw.Draw(background)
 
-    mask = Image.open('image_templates/placeholder_shirt_mask.png')
+    mask = Image.open('image_templates/shirt_mask.png')
     shirt = Image.open(shirt_image)
-    shirt.thumbnail((250,250))
-    mask.thumbnail((250,250))
+    shirt.thumbnail((250,250), Image.ANTIALIAS)
+    mask.thumbnail((250,250), Image.ANTIALIAS)
 
-    background.paste(shirt, mask=mask, box=(165,-27))
+    background.paste(shirt, mask=mask, box=(123,-29))
 
     image_path = 'compiled_templates/' + image_name
     background.save(image_path)
-    #background.show()
+    # background.show()
 
     return image_path
 
@@ -46,15 +46,15 @@ def build_rectangle_ad(image_name=None, subreddit=None, shirt_image=None):
     draw = ImageDraw.Draw(background, 'RGBA')
     image_path = 'compiled_templates/' + image_name 
 
-    #Image mask must be the correct mode! aka NOT RGB
-    mask = Image.open('image_templates/placeholder_shirt_mask.png')
+    #Image mask must be the correct mode! ie: '1' or 'L'
+    mask = Image.open('image_templates/shirt_mask.png')
     shirt = Image.open(shirt_image)
     #resize with thumbnail
-    shirt.thumbnail((350,250))
-    mask.thumbnail((350,250))
+    shirt.thumbnail((350,250), Image.ANTIALIAS)
+    mask.thumbnail((350,250), Image.ANTIALIAS)
 
     shirt_offset_x = (background.size[0]-shirt.size[0]) / 2
-    background.paste(shirt, mask=mask, box=(shirt_offset_x,35))
+    background.paste(shirt, mask=mask, box=(shirt_offset_x,28))
     
     font = ImageFont.truetype(font_location, 14)
     text_offset_x = (background.size[0]-font.getsize('/r/'+subreddit)[0]) / 2
@@ -63,7 +63,7 @@ def build_rectangle_ad(image_name=None, subreddit=None, shirt_image=None):
     #Add a white transparent bar
     draw.rectangle([(0,200), (300,250)], fill=(255, 255, 255, 150))
     
-    #background.show()
+    # background.show()
     background.save(image_path)
 
     return image_path
@@ -93,7 +93,7 @@ def draw_progess_bar(image, offset, size, percent):
     draw.rectangle([(offset[0], offset[1]), (offset[0]+(size[0]*percent), 
         offset[1]+size[1])], fill=(176,222,88))
 
-    #image.show()
+    image.show()
     return image
 
 #img = add_corners(img, 10)
